@@ -1,10 +1,11 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine.SceneManagement;
 using UnityEngine;
 using static bt_BUTTONTYPE;
 using static a_ADDRESS;
-using static gse_GAMESTATEENUM;
+using static gsn_GAMESTATENAME;
+using static System.Net.Mime.MediaTypeNames;
+using System.Diagnostics;
 
 /* This base state handles consistent BeeBox and Button interactions in a GameLevel */
 /* Then, it calls specific Left And Right button functions in its child game states */
@@ -12,48 +13,15 @@ using static gse_GAMESTATEENUM;
 
 public abstract class GS_Base_GameLevel : GameState
 {
-    protected GameLevel_PlayerController gl_controller;
-    protected WorldGrid WorldGridScript;
-    protected HoneyShelf HoneyShelfScript;
-    protected BackButton BackButtonScript;
-    protected HoneySticker HoneyStickerScript;
-    protected PauseMenu PauseMenuScript;
-    protected BeeBoxCluster BeeBoxClusterScript;
-    protected GameCursor GameCursorScript;
-    protected VineValidator ValidatorScript;
-    protected GameLevel GameLevelScript;
-
-    //temporary reference holders
-    protected a_ADDRESS Hovered_Slot;
-    protected bt_BUTTONTYPE Hovered_Button;
-    protected GameObject PieceInHand;
+    //temps
+    GameObject Area_obj;
+    Piece Piece_s;
 
 
     /* ADMIN */
 
-    public GS_Base_GameLevel(PlayerController controller, SMachine_GameState machine) : base(controller, machine)
+    public GS_Base_GameLevel(SMachine_GameState machine) : base(machine)
     {
-        gl_controller = _controller as GameLevel_PlayerController;
-
-        if (gl_controller != null)
-        {
-            // successfully cast
-            gl_controller = (GameLevel_PlayerController)_controller;
-            WorldGridScript = gl_controller.WorldGridScript;
-            HoneyShelfScript = gl_controller.HoneyShelfScript;
-            BackButtonScript = gl_controller.BackButtonScript;
-            HoneyStickerScript = gl_controller.HoneyStickerScript;
-            PauseMenuScript = gl_controller.PauseMenuScript;
-            BeeBoxClusterScript = gl_controller.BeeBoxClusterScript;
-            GameCursorScript = gl_controller.GameCursorScript;
-            ValidatorScript = gl_controller.ValidatorScript;
-            GameLevelScript = gl_controller.GameLevelScript;
-        }
-        else
-        {
-            // cast failed
-        }
-
     }
 
     public override IEnumerator OnBegin()
@@ -70,109 +38,110 @@ public abstract class GS_Base_GameLevel : GameState
 
     public override IEnumerator OnLeftButton()
     {
-        //update refs
-        Update_VitalReferences();
-
-        //start interaction
-        GameCursorScript.Interact();
-
         //if button hovered over
-        switch (Hovered_Button)
+        if (Hub._controller.Hovered_Button != bt_NONE)
         {
-            case bt_NONE:
-                break;
+            Hub.GameCursor_s.Interact_WithButton();
 
-            case bt_EXIT:
-                Debug.Log("should quit.");
-                Application.Quit();
-                yield break;
+            switch (Hub._controller.Hovered_Button)
+            {
 
-            case bt_STICKER:
-                HoneyStickerScript.InteractWithHoneySticker();
-                yield break;
+                case bt_EXIT:
+                    Debug.Log("should quit.");
+                    Application.Quit();
+                    yield break;
 
-            case bt_PAUSE:
-                _machine.SetState(gse_PAUSED);
-                yield break;
+                case bt_STICKER:
+                    HoneySticker_Pressed();
+                    yield break;
 
-            case bt_NEW:
-                Debug.Log("should be new.");
-                SceneManager.LoadScene("GameLevel", LoadSceneMode.Single);
-                yield break;
+                case bt_PAUSE:
+                    _machine.SetState(gsn_PAUSED);
+                    yield break;
 
-            case bt_BACK:
-                _machine.SetState(gse_OUTER);
-                yield break;
+                case bt_NEW:
+                    Debug.Log("should be new.");
+                    SceneManager.LoadScene("GameLevel", LoadSceneMode.Single);
+                    yield break;
 
-            case bt_SHELF:
-                HoneyShelfScript.Toggle_Shelf();
-                _machine.SetState(gse_HONEYSHELF);
-                yield break;
+                case bt_BACK:
+                    _machine.SetState(gsn_OUTER);
+                    yield break;
 
-            case bt_BBA:
-                BeeBoxClusterScript.BeeBoxButton_Pressed(a_BBA0);
-                yield break;
+                case bt_SHELF:
+                    Hub.HoneyShelf_s.Toggle_Shelf();
+                    yield break;
 
-            case bt_BBB:
-                BeeBoxClusterScript.BeeBoxButton_Pressed(a_BBB0);
-                yield break;
+                case bt_BBA:
+                    Hub.BeeBoxCluster_s.BeeBoxButton_Pressed(a_BBA0);
+                    yield break;
 
-            case bt_BBC:
-                BeeBoxClusterScript.BeeBoxButton_Pressed(a_BBC0);
-                yield break;
+                case bt_BBB:
+                    Hub.BeeBoxCluster_s.BeeBoxButton_Pressed(a_BBB0);
+                    yield break;
 
-            case bt_BBD:
-                BeeBoxClusterScript.BeeBoxButton_Pressed(a_BBD0);
-                yield break;
+                case bt_BBC:
+                    Hub.BeeBoxCluster_s.BeeBoxButton_Pressed(a_BBC0);
+                    yield break;
 
-            default:
-                break;
+                case bt_BBD:
+                    Hub.BeeBoxCluster_s.BeeBoxButton_Pressed(a_BBD0);
+                    yield break;
+
+                case bt_SORT:
+                    Hub.BeeBoxCluster_s.SortLeft_PiecesOnBeeBox();
+                    yield break;
+
+                default:
+                    break;
+            }
+
         }
 
         //none check
-        if (Hovered_Slot == NONE)
+        if (Hub._controller.Hovered_Slot == a_NONE)
         {
-            yield break;
+            Hub.GameCursor_s.Interact_WithNothing();
+
+            //not honeyshelf, you can break here
+            if (Hub._machine.Get_CurrentState() != gsn_HONEYSHELF)
+            {
+                yield break;
+            }
+
+            //Proceeding from here means GS_HoneyShelf can deal with Hovered_Slot being a_NONE
         }
 
         //if Beebox address
-        if (BeeBox_Check(Hovered_Slot))
+        if (BeeBox_Check(Hub._controller.Hovered_Slot))
         {
-            //find AreaObject
-            GameObject AreaObject = GameLevelScript.SlotRefDict[Hovered_Slot];
+            GameObject AreaObject = Hub.GameLevel_s.SlotRefDict[Hub._controller.Hovered_Slot];
 
-            //check if occupied
+            //if occupied
             if (AreaObject.GetComponentInChildren<Piece>() != null)
             {
                 //if piece in hand
-                if (PieceInHand != null)
+                if (Hub._controller.PieceInHand != null)
                 {
-                    //trigger negative feedback
+
                 }
+                //no piece in hand
                 else
                 {
-                    //condense
-                    Piece PieceScript = AreaObject.GetComponentInChildren<Piece>();
+                    Piece Piece_s = AreaObject.GetComponentInChildren<Piece>();
 
-                    //check if movable
-                    if (PieceScript.IsMovable)
+                    //if movable
+                    if (Piece_s.IsMovable)
                     {
-                        //pick up piece
-                        PieceScript.Pickup_Piece();
-
-                        //open area slot on beebox
-                        BeeBoxClusterScript.Open_ThisArea(Hovered_Slot);
-
-                        //put piece in hand
-                        _controller.Update_PieceInHand(PieceScript.gameObject);
-
-                        //change cursor
-                        GameCursorScript.Close();
+                        Piece_s.Pickup_Piece();
+                        Hub.BeeBoxCluster_s.Open_ThisArea(Hub._controller.Hovered_Slot);
+                        Hub._controller.Update_PieceInHand(Piece_s.gameObject);
+                        Hub.GameCursor_s.Holding();
                     }
                     //not movable
                     else
                     {
-                        //trigger negative feedback
+
                     }
                 }
             }
@@ -180,30 +149,22 @@ public abstract class GS_Base_GameLevel : GameState
             else
             {
                 //if piece in hand
-                if (PieceInHand != null)
+                if (Hub._controller.PieceInHand != null)
                 {
-                    //put piece down
-                    PieceInHand.GetComponent<Piece>().Place_Piece(AreaObject, false);
-
-                    //close area slot on beebox
-                    BeeBoxClusterScript.Close_ThisArea(Hovered_Slot);
-
-                    //remove piece from hand
-                    _controller.Update_PieceInHand(null);
-
-                    //change cursor
-                    GameCursorScript.Normal();
+                    Hub._controller.PieceInHand.GetComponent<Piece>().Place_Piece(AreaObject, false);
+                    Hub.BeeBoxCluster_s.Close_ThisArea(Hub._controller.Hovered_Slot);
+                    Hub._controller.Update_PieceInHand(null);
+                    Hub.GameCursor_s.Normal();
                 }
+                //no piece in hand
                 else
                 {
-                    //do nothing
+
                 }
             }
 
-            //exit function
             yield break;
         }
-
 
         //run child game state specifics - there is a hovered slot
         LeftGameBoardSpecific_OnLeftButton();
@@ -217,62 +178,54 @@ public abstract class GS_Base_GameLevel : GameState
 
     public override IEnumerator OnRightButton()
     {
-        //update refs
-        Update_VitalReferences();
-
         //if piece in hand
-        if (PieceInHand != null)
+        if (Hub._controller.PieceInHand != null)
         {
-            //condense
-            Piece PieceScript = PieceInHand.GetComponent<Piece>();
+            Piece Piece_s = Hub._controller.PieceInHand.GetComponent<Piece>();
 
             //if spinnable
-            if (PieceScript.IsSpinnable)
+            if (Piece_s.IsSpinnable)
             {
-                //rotate piece attached
-                PieceScript.Rotate_Piece();
+                Piece_s.Rotate_Piece();
             }
+            //not spinnable
             else
             {
-                //trigger negative feedback
-                PieceScript.NegativeFeedback_PieceRotation();
+                Piece_s.NegativeFeedback_PieceRotation();
             }
 
-            //leave spin function
             yield break;
         }
 
         /* No Piece In Hand */
 
         //no Hovered_Slot
-        if (Hovered_Slot == NONE)
+        if (Hub._controller.Hovered_Slot == a_NONE)
         {
-            //do nothing
             yield break;
         }
 
         //if BeeBox
-        if (BeeBox_Check(Hovered_Slot))
+        if (BeeBox_Check(Hub._controller.Hovered_Slot))
         {
-            //find AreaObject
-            GameObject AreaObject = GameLevelScript.SlotRefDict[Hovered_Slot];
+            GameObject AreaObject = Hub.GameLevel_s.SlotRefDict[Hub._controller.Hovered_Slot];
 
             //check if occupied
             if (AreaObject.GetComponentInChildren<Piece>() != null)
             {
                 //condense
-                Piece PieceScript = AreaObject.GetComponentInChildren<Piece>();
+                Piece Piece_s = AreaObject.GetComponentInChildren<Piece>();
 
                 //if spinnable
-                if (PieceScript.IsSpinnable)
+                if (Piece_s.IsSpinnable)
                 {
                     //rotate piece attached
-                    PieceScript.Rotate_Piece();
+                    Piece_s.Rotate_Piece();
                 }
                 else
                 {
                     //trigger negative feedback
-                    PieceScript.NegativeFeedback_PieceRotation();
+                    Piece_s.NegativeFeedback_PieceRotation();
                 }
             }
 
@@ -281,14 +234,16 @@ public abstract class GS_Base_GameLevel : GameState
         }
 
         //run child game state specifics
-        RightGameBoardSpecific_OnRightButton();
+        LeftGameBoardSpecific_OnRightButton();
 
         yield break;
     }
 
-    public virtual void RightGameBoardSpecific_OnRightButton()
+    public virtual void LeftGameBoardSpecific_OnRightButton()
     {
     }
+
+    /* UTILITIES */
 
     public bool BeeBox_Check(a_ADDRESS slot)
     {
@@ -326,7 +281,7 @@ public abstract class GS_Base_GameLevel : GameState
         int conversion = (int)slot;
 
         //if honeyshelf honeycomb, according to enum order
-        if (conversion >=  57 && conversion <= 63)
+        if (conversion >= 57 && conversion <= 63)
         {
             return true;
         }
@@ -335,10 +290,23 @@ public abstract class GS_Base_GameLevel : GameState
         return false;
     }
 
-    public void Update_VitalReferences()
+    private void HoneySticker_Pressed()
     {
-        Hovered_Button = _controller.Hovered_Button;
-        Hovered_Slot = _controller.Hovered_Slot;
-        PieceInHand = _controller.PieceInHand;
+        //if piece in hand
+        if (Hub._controller.PieceInHand != null)
+        {
+            return;
+        }
+
+        //sticky already
+        if (Hub.GameCursor_s.IsCursorSticky())
+        {
+            Hub.GameCursor_s.Normal();
+        }
+        //not sticky
+        else
+        {
+            Hub.GameCursor_s.Sticky();
+        }
     }
 }

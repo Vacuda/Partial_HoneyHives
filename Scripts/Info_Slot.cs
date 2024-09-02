@@ -1,7 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
 public class Info_Slot
 {
     //MEMBERS
@@ -26,7 +22,7 @@ public class Info_Slot
 
 
     //CONSTRUCTOR
-    public Info_Slot(   a_ADDRESS address, 
+    public Info_Slot(a_ADDRESS address,
                         bool movable,
                         bool spinnable,
                         bool stored_movable,

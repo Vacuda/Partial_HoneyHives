@@ -1,17 +1,17 @@
 using UnityEngine;
 
-public enum gse_GAMESTATEENUM
+public enum gsn_GAMESTATENAME
 {
     //game states
-    gse_NONE, gse_TRANS, gse_TITLE, gse_INNER, gse_OUTER, gse_PAUSED, gse_ENDGAME, gse_HONEYSHELF
-};
+    gsn_NONE, gsn_TRANS, gsn_TITLE, gsn_INNER, gsn_OUTER, gsn_PAUSED, gsn_ENDGAME, gsn_HONEYSHELF, gsn_MENU
+}
 
 public enum a_ADDRESS
 {
     /* the order is important here.  PuzzleBuilder uses the order */
 
     //none
-    NONE = 0,
+    a_NONE = 0,
 
     //honeycomb address
     //a_A, a_B, a_C, a_D, a_E, a_F, a_G
@@ -77,9 +77,10 @@ public enum c_ACTCOLOR
 
 public enum bt_BUTTONTYPE
 {
-    bt_NONE, bt_EXIT, bt_RESET, bt_NEW, bt_STICKER, 
+    bt_NONE, bt_EXIT, bt_RESET, bt_NEW, bt_STICKER,
     bt_PAUSE, bt_BACK, bt_SAVE, bt_SHELF,
-    bt_BBA, bt_BBB, bt_BBC, bt_BBD
+    bt_BBA, bt_BBB, bt_BBC, bt_BBD, bt_PEDESTAL,
+    bt_SORT, bt_TUTORIAL
 }
 
 public enum w_WAVETYPE
@@ -87,6 +88,22 @@ public enum w_WAVETYPE
     w_SIN, w_COS, w_TAN, w_PINGPONG
 }
 
+public enum va_VINEAXIS
+{
+    va_NONE, va_1, va_2, va_3, va_4, va_5, va_6, va_7, va_8, va_9
+}
+
+public enum tsn_TUTSTATENAME
+{
+    tsn_00_PAUSED = 0,
+    tsn_01_PIECEMOVE,
+    tsn_02_PIECESPIN,
+    tsn_03_PIECEBOTH,
+    tsn_04_PIECENONE,
+    tsn_05_STICKER,
+    tsn_06_UNSTICKER
+
+}
 
 public class CustomEnums : MonoBehaviour
 {
