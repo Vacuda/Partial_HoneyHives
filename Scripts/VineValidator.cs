@@ -4,6 +4,8 @@ using UnityEngine;
 using static a_ADDRESS;
 using static t_TRI;
 using static fv_FACEVALUE;
+using static va_VINEAXIS;
+using System.Diagnostics;
 
 public struct VineBlock
 {
@@ -19,19 +21,10 @@ public struct VineBlock
 
 public class VineValidator : MonoBehaviour
 {
-    Dictionary<a_ADDRESS, GameObject> SlotRefDict;
+    //public GameObject RefHolder;
 
-    void Start()
-    {
-        //copy reference
-        SlotRefDict = gameObject.GetComponent<WorldGrid>().GameLevelScript.SlotRefDict;
-
-        //Debug.Log("----");
-        //bool lava = Validate_With_1_Equals(fv_7, fv_Aa_D, fv_SUB, fv_3, fv_EQUALS, fv_1);
-        //Debug.Log("7 + - 3 = 1");
-        //Debug.Log(lava);
-        //Debug.Log("----");
-    }
+    //public Dictionary<a_ADDRESS, GameObject> SlotRefDict;
+    //Dictionary<va_VINEAXIS, List<fv_FACEVALUE>> BulbAnswerDict;
 
     public void Validate_AllHoneyCombs()
     {
@@ -47,7 +40,7 @@ public class VineValidator : MonoBehaviour
     public void Validate_ThisHoneyComb(a_ADDRESS HoneyCombAddress)
     {
         //condense
-        HoneyComb ThisHoneyComb = SlotRefDict[HoneyCombAddress].GetComponent<HoneyComb>();
+        HoneyComb ThisHoneyComb = Hub.SlotRefDict[HoneyCombAddress].GetComponent<HoneyComb>();
 
         //finalized check
         if (ThisHoneyComb.IsHoneyComb_Finalized())
@@ -57,47 +50,47 @@ public class VineValidator : MonoBehaviour
 
         //get truncated ref dictionary
         Dictionary<a_ADDRESS, GameObject> HoneySlotRefDict = ThisHoneyComb.HoneySlotRefDict;
+        Dictionary<va_VINEAXIS, Vine> VineRefDict = ThisHoneyComb.VineRefDict;
 
         //start counter
-        int ValidFlowerCounter = 0;
+        int ValidVineCounter = 0;
 
-        //loop through nine flowers
-        for (int i=1; i<=9; i++)
+        //loop through nine vines
+        for (int i = 1; i <= 9; i++)
         {
-            //build FlowerName
-            string FlowerName = "FlowerIndicator_" + i;
-
-            //if flower is good
-            if (Validate_ThisFlower(HoneySlotRefDict, FlowerName))
+            //if vine is good
+            if (Validate_ThisVine(HoneySlotRefDict, VineRefDict, (va_VINEAXIS)i))
             {
-                //activate
-                SlotRefDict[HoneyCombAddress].transform.Find(FlowerName).GetComponent<FlowerIndicator>().Activate_Flower();
-
-                //increment counter
-                ValidFlowerCounter++;
+                Hub.SlotRefDict[HoneyCombAddress].transform.GetChild(i + 7).GetComponent<Vine>().Activate_Flower();
+                Change_EqualSigns(HoneySlotRefDict, (va_VINEAXIS)i, true);
+                ValidVineCounter++;
             }
-            //if flower is bad
+            //if vine is bad
             else
             {
-                //deactivate
-                SlotRefDict[HoneyCombAddress].transform.Find(FlowerName).GetComponent<FlowerIndicator>().Deactivate_Flower();
+                Hub.SlotRefDict[HoneyCombAddress].transform.GetChild(i + 7).GetComponent<Vine>().Deactivate_Flower();
+                Change_EqualSigns(HoneySlotRefDict, (va_VINEAXIS)i, false);
             }
+        }
+
+        if (Hub.TitleLevel_s || Hub.TutorialLevel_s)
+        {
+            return;
         }
 
         //if all 9 Flowers are valid
-        if(ValidFlowerCounter == 9){
-
-            gameObject.GetComponent<WorldGrid>().GameLevelScript.Trigger_HoneyCombCompletion(ThisHoneyComb);
-
-
-            //finalize honeycomb
-            //ThisHoneyComb.Finalize_ThisHoneyComb();
+        if (ValidVineCounter == 9)
+        {
+            Hub.GameLevel_s.Trigger_HoneyCombValidation(ThisHoneyComb, true);
+        }
+        else
+        {
+            Hub.GameLevel_s.Trigger_HoneyCombValidation(ThisHoneyComb, false);
         }
     }
 
-    /* The following are static because they are also used for the VineValidor_Title on the TitleScreen */
 
-    static public bool DoesThisValidate(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4)
+    public bool DoesThisValidate(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, ref string ans)
     {
         //find amount of equals in values
         int EqualsAmount = Get_AmountOfEqualsValues(val1, val2, val3, val4);
@@ -106,13 +99,14 @@ public class VineValidator : MonoBehaviour
         switch (EqualsAmount)
         {
             case 0:
+                Scrub_TheseBlocks_NoEquals(val1, val2, val3, val4, ref ans);
                 return true;
             case 1:
-                return Validate_With_1_Equals(val1, val2, val3, val4);
+                return Validate_With_1_Equals(val1, val2, val3, val4, ref ans);
             case 2:
                 return false;
             case 3:
-                return Validate_With_3_Equals(val1, val2, val3, val4);
+                return Validate_With_3_Equals(val1, val2, val3, val4, ref ans);
             case 4:
                 return false;
             default:
@@ -120,7 +114,7 @@ public class VineValidator : MonoBehaviour
         }
     }
 
-    static public bool DoesThisValidate(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6)
+    public bool DoesThisValidate(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6, ref string ans)
     {
         //find amount of equals in values
         int EqualsAmount = Get_AmountOfEqualsValues(val1, val2, val3, val4, val5, val6);
@@ -128,26 +122,27 @@ public class VineValidator : MonoBehaviour
         //validate according to EqualsAmount
         switch (EqualsAmount)
         {
-            case 0: 
+            case 0:
+                Scrub_TheseBlocks_NoEquals(val1, val2, val3, val4, val5, val6, ref ans);
                 return true;
             case 1:
-                return Validate_With_1_Equals(val1, val2, val3, val4, val5, val6);
+                return Validate_With_1_Equals(val1, val2, val3, val4, val5, val6, ref ans);
             case 2:
-                return Validate_With_2_Equals(val1, val2, val3, val4, val5, val6);
+                return Validate_With_2_Equals(val1, val2, val3, val4, val5, val6, ref ans);
             case 3:
-                return Validate_With_3_Equals(val1, val2, val3, val4, val5, val6);
+                return Validate_With_3_Equals(val1, val2, val3, val4, val5, val6, ref ans);
             case 4:
                 return false;
             case 5:
-                return Validate_With_5_Equals(val1, val2, val3, val4, val5, val6);
+                return Validate_With_5_Equals(val1, val2, val3, val4, val5, val6, ref ans);
             case 6:
                 return false;
-            default: 
+            default:
                 return false;
         }
     }
 
-    static private bool Validate_With_1_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4)
+    private bool Validate_With_1_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, ref string ans)
     {
         //separate into Left and Right lists
         //remove blanks
@@ -202,22 +197,56 @@ public class VineValidator : MonoBehaviour
             }
         }
 
-        PossiblyEliminate_Zeros(ref Left_Values);
-        PossiblyEliminate_Zeros(ref Right_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Left_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Right_Values);
 
-        PossiblyMerge_Ints(ref Left_Values);
-        PossiblyMerge_Ints(ref Right_Values);
+        Scrub_PossiblyMerge_Ints(ref Left_Values);
+        Scrub_PossiblyMerge_Ints(ref Right_Values);
 
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Left_Values);
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Right_Values);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Right_Values);
 
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);
 
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);
 
-        /* Scrubbing Done.  Check If Equal Now */
+        /* SCRUBBING DONE */
+
+        /* Apply Answer */
+        {
+            //left
+            for (int i = 0; i < Left_Values.Count; i++)
+            {
+                if (Left_Values[i].Value == fv_INT)
+                {
+                    ans += Left_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Left_Values[i].Value);
+                }
+            }
+
+            //equals
+            ans += Hub.LevelBuilder_s.Convert_FaceValueToString(fv_EQUALS);
+
+            //right
+            for (int i = 0; i < Right_Values.Count; i++)
+            {
+                if (Right_Values[i].Value == fv_INT)
+                {
+                    ans += Right_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Right_Values[i].Value);
+                }
+            }
+        }
+
+        /* Check If Equal Now */
 
         //if equal side counts
         if (Right_Values.Count == Left_Values.Count)
@@ -250,7 +279,7 @@ public class VineValidator : MonoBehaviour
         return false;
     }
 
-    static private bool Validate_With_1_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6)
+    private bool Validate_With_1_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6, ref string ans)
     {
         //separate into Left and Right lists
         //remove blanks
@@ -308,20 +337,20 @@ public class VineValidator : MonoBehaviour
         }
 
 
-        PossiblyEliminate_Zeros(ref Left_Values);
-        PossiblyEliminate_Zeros(ref Right_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Left_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Right_Values);
 
-        PossiblyMerge_Ints(ref Left_Values);
-        PossiblyMerge_Ints(ref Right_Values);
+        Scrub_PossiblyMerge_Ints(ref Left_Values);
+        Scrub_PossiblyMerge_Ints(ref Right_Values);
 
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Left_Values);
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Right_Values);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Right_Values);
 
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);
 
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);
 
         //Debug.Log("LeftValues------ ");
         //foreach (VineBlock block in Left_Values)
@@ -345,7 +374,41 @@ public class VineValidator : MonoBehaviour
         //}
 
 
-        /* Scrubbing Done.  Check If Equal Now */
+        /* SCRUBBING DONE */
+
+        /* Apply Answer */
+        {
+            //left
+            for (int i = 0; i < Left_Values.Count; i++)
+            {
+                if (Left_Values[i].Value == fv_INT)
+                {
+                    ans += Left_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Left_Values[i].Value);
+                }
+            }
+
+            //equals
+            ans += Hub.LevelBuilder_s.Convert_FaceValueToString(fv_EQUALS);
+
+            //right
+            for (int i = 0; i < Right_Values.Count; i++)
+            {
+                if (Right_Values[i].Value == fv_INT)
+                {
+                    ans += Right_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Right_Values[i].Value);
+                }
+            }
+        }
+
+        /* Check If Equal Now */
 
         //if equal side counts
         if (Right_Values.Count == Left_Values.Count)
@@ -378,7 +441,7 @@ public class VineValidator : MonoBehaviour
         return false;
     }
 
-    static private bool Validate_With_2_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6)
+    private bool Validate_With_2_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6, ref string ans)
     {
         /* Three blocks need to equal each other */
 
@@ -442,48 +505,98 @@ public class VineValidator : MonoBehaviour
             //A-List
             if (A_Values.Count > 1)
             {
-                PossiblyEliminate_Zeros(ref A_Values);
-                PossiblyMerge_Ints(ref A_Values);
-                PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref A_Values);
-                PossiblyEliminate_MinusSigns_OnlyMath(ref A_Values);
-                PossiblyEliminate_PlusSigns_OnlyMath(ref A_Values);
+                Scrub_PossiblyEliminate_Zeros(ref A_Values);
+                Scrub_PossiblyMerge_Ints(ref A_Values);
+                Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref A_Values);
+                Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref A_Values);
+                Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref A_Values);
             }
             else
             {
-                PossiblyMerge_Ints(ref A_Values);
+                Scrub_PossiblyMerge_Ints(ref A_Values);
             }
 
             //B-List
             if (B_Values.Count > 1)
             {
-                PossiblyEliminate_Zeros(ref B_Values);
-                PossiblyMerge_Ints(ref B_Values);
-                PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref B_Values);
-                PossiblyEliminate_MinusSigns_OnlyMath(ref B_Values);
-                PossiblyEliminate_PlusSigns_OnlyMath(ref B_Values);
+                Scrub_PossiblyEliminate_Zeros(ref B_Values);
+                Scrub_PossiblyMerge_Ints(ref B_Values);
+                Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref B_Values);
+                Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref B_Values);
+                Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref B_Values);
             }
             else
             {
-                PossiblyMerge_Ints(ref B_Values);
+                Scrub_PossiblyMerge_Ints(ref B_Values);
             }
 
             //C-List
             if (C_Values.Count > 1)
             {
-                PossiblyEliminate_Zeros(ref C_Values);
-                PossiblyMerge_Ints(ref C_Values);
-                PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref C_Values);
-                PossiblyEliminate_MinusSigns_OnlyMath(ref C_Values);
-                PossiblyEliminate_PlusSigns_OnlyMath(ref C_Values);
+                Scrub_PossiblyEliminate_Zeros(ref C_Values);
+                Scrub_PossiblyMerge_Ints(ref C_Values);
+                Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref C_Values);
+                Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref C_Values);
+                Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref C_Values);
             }
             else
             {
-                PossiblyMerge_Ints(ref C_Values);
+                Scrub_PossiblyMerge_Ints(ref C_Values);
             }
 
         }
 
-        /* Scrubbing Done.  Check If Equal Now */
+        /* SCRUBBING DONE */
+
+        /* Apply Answer */
+        {
+            //A
+            for (int i = 0; i < A_Values.Count; i++)
+            {
+                if (A_Values[i].Value == fv_INT)
+                {
+                    ans += A_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(A_Values[i].Value);
+                }
+            }
+
+            //equals
+            ans += Hub.LevelBuilder_s.Convert_FaceValueToString(fv_EQUALS);
+
+            //B
+            for (int i = 0; i < B_Values.Count; i++)
+            {
+                if (B_Values[i].Value == fv_INT)
+                {
+                    ans += B_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(B_Values[i].Value);
+                }
+            }
+
+            //equals
+            ans += Hub.LevelBuilder_s.Convert_FaceValueToString(fv_EQUALS);
+
+            //C
+            for (int i = 0; i < C_Values.Count; i++)
+            {
+                if (C_Values[i].Value == fv_INT)
+                {
+                    ans += C_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(C_Values[i].Value);
+                }
+            }
+        }
+
+        /* Check If Equal Now */
 
         //if equal counts
         if (A_Values.Count == B_Values.Count && A_Values.Count == C_Values.Count)
@@ -516,7 +629,7 @@ public class VineValidator : MonoBehaviour
         return false;
     }
 
-    static private bool Validate_With_3_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6)
+    private bool Validate_With_3_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6, ref string ans)
     {
         /* Of the 3, the middle equals is the divider.  Side equals are just symbols */
 
@@ -549,19 +662,19 @@ public class VineValidator : MonoBehaviour
         foreach (VineBlock vblock in AllValues)
         {
             //increment ticker
-            if(vblock.Value == fv_EQUALS)
+            if (vblock.Value == fv_EQUALS)
             {
                 EqualsTicker++;
             }
 
             // skip, if blank
-            if(vblock.Value == fv_BLANK)
+            if (vblock.Value == fv_BLANK)
             {
                 continue;
             }
 
             //before middle
-            if(EqualsTicker < 2)
+            if (EqualsTicker < 2)
             {
                 //add to left
                 Left_Values.Add(vblock);
@@ -580,47 +693,81 @@ public class VineValidator : MonoBehaviour
             }
         }
 
-        PossiblyEliminate_Zeros(ref Left_Values);
-        PossiblyEliminate_Zeros(ref Right_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Left_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Right_Values);
 
-        PossiblyMerge_Ints(ref Left_Values);                
-        PossiblyMerge_Ints(ref Right_Values);
+        Scrub_PossiblyMerge_Ints(ref Left_Values);
+        Scrub_PossiblyMerge_Ints(ref Right_Values);
 
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Left_Values);
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Right_Values);               
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Right_Values);
 
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);              
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);             
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);
 
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);              
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);             
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);
 
-        
-    /* Scrubbing Done.  Check If Equal Now */
+
+        /* SCRUBBING DONE */
+
+        /* Apply Answer */
+        {
+            //left
+            for (int i = 0; i < Left_Values.Count; i++)
+            {
+                if (Left_Values[i].Value == fv_INT)
+                {
+                    ans += Left_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Left_Values[i].Value);
+                }
+            }
+
+            //equals
+            ans += Hub.LevelBuilder_s.Convert_FaceValueToString(fv_EQUALS);
+
+            //right
+            for (int i = 0; i < Right_Values.Count; i++)
+            {
+                if (Right_Values[i].Value == fv_INT)
+                {
+                    ans += Right_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Right_Values[i].Value);
+                }
+            }
+        }
+
+        /* Check If Equal Now */
 
         //if equal side counts
         if (Right_Values.Count == Left_Values.Count)
         {
             //loop indexes
-            for(int i=0; i<Right_Values.Count; i++)
+            for (int i = 0; i < Right_Values.Count; i++)
             {
                 //if no match
-                if(Right_Values[i].Value != Left_Values[i].Value)
+                if (Right_Values[i].Value != Left_Values[i].Value)
                 {
                     return false;
                 }
                 //if both are fv_INT
-                if(Right_Values[i].Value == fv_INT)
+                if (Right_Values[i].Value == fv_INT)
                 {
                     //if IntValues don't match
-                    if(Left_Values[i].IntValue != Right_Values[i].IntValue)
+                    if (Left_Values[i].IntValue != Right_Values[i].IntValue)
                     {
                         return false;
                     }
                 }
             }
 
-        /* Everything matches */
+            /* Everything matches */
 
             return true;
         }
@@ -629,7 +776,7 @@ public class VineValidator : MonoBehaviour
         return false;
     }
 
-    static private bool Validate_With_3_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4)
+    private bool Validate_With_3_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, ref string ans)
     {
         /* Of the 3, the middle equals is the divider.  Side equals are just symbols */
 
@@ -684,30 +831,64 @@ public class VineValidator : MonoBehaviour
                 Right_Values.Add(vblock);
             }
             //at middle
-            if(EqualsTicker == 2)
+            if (EqualsTicker == 2)
             {
                 //increment ticker again, sending to right side now
                 EqualsTicker++;
             }
         }
-        
-        PossiblyEliminate_Zeros(ref Left_Values);
-        PossiblyEliminate_Zeros(ref Right_Values);
 
-        PossiblyMerge_Ints(ref Left_Values);
-        PossiblyMerge_Ints(ref Right_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Left_Values);
+        Scrub_PossiblyEliminate_Zeros(ref Right_Values);
 
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Left_Values);
-        PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref Right_Values);
+        Scrub_PossiblyMerge_Ints(ref Left_Values);
+        Scrub_PossiblyMerge_Ints(ref Right_Values);
 
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);
-        PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref Right_Values);
 
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);
-        PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref Right_Values);
+
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Left_Values);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref Right_Values);
 
 
-        /* Scrubbing Done.  Check If Equal Now */
+        /* SCRUBBING DONE */
+
+        /* Apply Answer */
+        {
+            //left
+            for (int i = 0; i < Left_Values.Count; i++)
+            {
+                if (Left_Values[i].Value == fv_INT)
+                {
+                    ans += Left_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Left_Values[i].Value);
+                }
+            }
+
+            //equals
+            ans += Hub.LevelBuilder_s.Convert_FaceValueToString(fv_EQUALS);
+
+            //right
+            for (int i = 0; i < Right_Values.Count; i++)
+            {
+                if (Right_Values[i].Value == fv_INT)
+                {
+                    ans += Right_Values[i].IntValue.ToString();
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(Right_Values[i].Value);
+                }
+            }
+        }
+
+        /* Check If Equal Now */
 
         //if equal side counts
         if (Right_Values.Count == Left_Values.Count)
@@ -740,43 +921,62 @@ public class VineValidator : MonoBehaviour
         return false;
     }
 
-    static private bool Validate_With_5_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6)
+    private bool Validate_With_5_Equals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6, ref string ans)
     {
         // the one non-equal has to be a fv_BLANK
-        if(val1==fv_BLANK || val2 == fv_BLANK || val3 == fv_BLANK || val4 == fv_BLANK || val5 == fv_BLANK || val6 == fv_BLANK)
+        if (val1 == fv_BLANK || val2 == fv_BLANK || val3 == fv_BLANK || val4 == fv_BLANK || val5 == fv_BLANK || val6 == fv_BLANK)
         {
+            //apply answer
+            ans = "=====";
+
             return true;
         }
 
         return false;
     }
 
-    static private bool Validate_ThisFlower(Dictionary<a_ADDRESS, GameObject> HoneySlotRefDict, string flowername)
+    private bool Validate_ThisVine(Dictionary<a_ADDRESS, GameObject> HoneySlotRefDict, Dictionary<va_VINEAXIS, Vine> VineRefDict, va_VINEAXIS axis)
     {
         /*
          This finds each value that is needed, with a correct offset and sends it off for validation to 
         an overloaded function that will validate 4 values or 6.
          */
 
-        //@@@@ This can be optimized much more.  Finding components multiple times.  Switch by strings instead of enums
+        //usables
+        fv_FACEVALUE val1;
+        fv_FACEVALUE val2;
+        fv_FACEVALUE val3;
+        fv_FACEVALUE val4;
+        fv_FACEVALUE val5;
+        fv_FACEVALUE val6;
 
-        switch (flowername)
+        string bulb_ans = string.Empty;
+
+        switch (axis)
         {
-            case "FlowerIndicator_1":
+            case va_1:
                 {
                     //null check
-                    if(HoneySlotRefDict[a_G].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_F].GetComponentInChildren<Piece>() == null)
+                    if (HoneySlotRefDict[a_G].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_F].GetComponentInChildren<Piece>() == null)
                     {
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
-                    return DoesThisValidate(val1, val2, val3, val4);
+                    val1 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
+                    val2 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
+                    val3 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
+                    val4 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
                 }
-            case "FlowerIndicator_2":
+            case va_2:
                 {
                     //null check
                     if (HoneySlotRefDict[a_E].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_D].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_C].GetComponentInChildren<Piece>() == null)
@@ -784,15 +984,23 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
-                    fv_FACEVALUE val5 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
-                    fv_FACEVALUE val6 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
-                    return DoesThisValidate(val1, val2, val3, val4, val5, val6);
+                    val1 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
+                    val2 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
+                    val3 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
+                    val4 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
+                    val5 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
+                    val6 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, val5, val6, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, val5, val6, ref bulb_ans);
                 }
-            case "FlowerIndicator_3":
+            case va_3:
                 {
                     //null check
                     if (HoneySlotRefDict[a_B].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_A].GetComponentInChildren<Piece>() == null)
@@ -800,13 +1008,21 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
-                    return DoesThisValidate(val1, val2, val3, val4);
+                    val1 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
+                    val2 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
+                    val3 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_6);
+                    val4 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_3);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
                 }
-            case "FlowerIndicator_4":
+            case va_4:
                 {
                     //null check
                     if (HoneySlotRefDict[a_E].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_G].GetComponentInChildren<Piece>() == null)
@@ -814,13 +1030,21 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
-                    return DoesThisValidate(val1, val2, val3, val4);
+                    val1 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
+                    val2 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
+                    val3 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
+                    val4 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
                 }
-            case "FlowerIndicator_5":
+            case va_5:
                 {
                     //null check
                     if (HoneySlotRefDict[a_B].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_D].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_F].GetComponentInChildren<Piece>() == null)
@@ -828,15 +1052,23 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
-                    fv_FACEVALUE val5 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
-                    fv_FACEVALUE val6 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
-                    return DoesThisValidate(val1, val2, val3, val4, val5, val6);
+                    val1 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
+                    val2 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
+                    val3 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
+                    val4 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
+                    val5 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
+                    val6 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, val5, val6, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, val5, val6, ref bulb_ans);
                 }
-            case "FlowerIndicator_6":
+            case va_6:
                 {
                     //null check
                     if (HoneySlotRefDict[a_A].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_C].GetComponentInChildren<Piece>() == null)
@@ -844,13 +1076,21 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
-                    return DoesThisValidate(val1, val2, val3, val4);
+                    val1 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
+                    val2 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
+                    val3 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_5);
+                    val4 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_2);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
                 }
-            case "FlowerIndicator_7":
+            case va_7:
                 {
                     //null check
                     if (HoneySlotRefDict[a_B].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_E].GetComponentInChildren<Piece>() == null)
@@ -858,13 +1098,21 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
-                    return DoesThisValidate(val1, val2, val3, val4);
+                    val1 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
+                    val2 = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
+                    val3 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
+                    val4 = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
                 }
-            case "FlowerIndicator_8":
+            case va_8:
                 {
                     //null check
                     if (HoneySlotRefDict[a_A].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_D].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_G].GetComponentInChildren<Piece>() == null)
@@ -872,15 +1120,23 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
-                    fv_FACEVALUE val5 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
-                    fv_FACEVALUE val6 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
-                    return DoesThisValidate(val1, val2, val3, val4, val5, val6);
+                    val1 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
+                    val2 = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
+                    val3 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
+                    val4 = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
+                    val5 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
+                    val6 = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, val5, val6, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, val5, val6, ref bulb_ans);
                 }
-            case "FlowerIndicator_9":
+            case va_9:
                 {
                     //null check
                     if (HoneySlotRefDict[a_C].GetComponentInChildren<Piece>() == null || HoneySlotRefDict[a_F].GetComponentInChildren<Piece>() == null)
@@ -888,35 +1144,407 @@ public class VineValidator : MonoBehaviour
                         return false;
                     }
 
-                    fv_FACEVALUE val1 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
-                    fv_FACEVALUE val2 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
-                    fv_FACEVALUE val3 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
-                    fv_FACEVALUE val4 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
-                    return DoesThisValidate(val1, val2, val3, val4);
+                    val1 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
+                    val2 = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
+                    val3 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_4);
+                    val4 = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>().Get_FaceValue_WithOffset(t_1);
+
+                    //if bulb activated
+                    if (VineRefDict[axis].IsBulbValidated)
+                    {
+                        DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
+                        return bulb_ans == VineRefDict[axis].bulb_answer;
+                    }
+
+                    return DoesThisValidate(val1, val2, val3, val4, ref bulb_ans);
                 }
             default:
                 return false;
         }
     }
 
+    public void Change_EqualSigns(Dictionary<a_ADDRESS, GameObject> HoneySlotRefDict, va_VINEAXIS axis, bool activation)
+    {
+        //usables
+        Piece Piece_s;
+
+        switch (axis)
+        {
+            case va_1:
+                {
+                    if (HoneySlotRefDict[a_G].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_6, activation);
+                        Piece_s.Alter_EqualSign(t_3, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_F].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_6, activation);
+                        Piece_s.Alter_EqualSign(t_3, activation);
+                    }
+
+                    break;
+                }
+            case va_2:
+                {
+                    if (HoneySlotRefDict[a_E].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_6, activation);
+                        Piece_s.Alter_EqualSign(t_3, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_D].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_6, activation);
+                        Piece_s.Alter_EqualSign(t_3, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_C].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_6, activation);
+                        Piece_s.Alter_EqualSign(t_3, activation);
+                    }
+
+                    break;
+                }
+            case va_3:
+                {
+                    if (HoneySlotRefDict[a_B].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_6, activation);
+                        Piece_s.Alter_EqualSign(t_3, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_A].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_6, activation);
+                        Piece_s.Alter_EqualSign(t_3, activation);
+                    }
+
+                    break;
+                }
+            case va_4:
+                {
+                    if (HoneySlotRefDict[a_E].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_5, activation);
+                        Piece_s.Alter_EqualSign(t_2, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_G].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_5, activation);
+                        Piece_s.Alter_EqualSign(t_2, activation);
+                    }
+
+                    break;
+                }
+            case va_5:
+                {
+                    if (HoneySlotRefDict[a_B].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_5, activation);
+                        Piece_s.Alter_EqualSign(t_2, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_D].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_5, activation);
+                        Piece_s.Alter_EqualSign(t_2, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_F].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_5, activation);
+                        Piece_s.Alter_EqualSign(t_2, activation);
+                    }
+
+                    break;
+                }
+            case va_6:
+                {
+                    if (HoneySlotRefDict[a_A].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_5, activation);
+                        Piece_s.Alter_EqualSign(t_2, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_C].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_5, activation);
+                        Piece_s.Alter_EqualSign(t_2, activation);
+                    }
+
+                    break;
+                }
+            case va_7:
+                {
+                    if (HoneySlotRefDict[a_B].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_B].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_4, activation);
+                        Piece_s.Alter_EqualSign(t_1, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_E].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_E].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_4, activation);
+                        Piece_s.Alter_EqualSign(t_1, activation);
+                    }
+
+                    break;
+                }
+            case va_8:
+                {
+                    if (HoneySlotRefDict[a_A].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_A].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_4, activation);
+                        Piece_s.Alter_EqualSign(t_1, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_D].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_D].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_4, activation);
+                        Piece_s.Alter_EqualSign(t_1, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_G].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_G].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_4, activation);
+                        Piece_s.Alter_EqualSign(t_1, activation);
+                    }
+
+                    break;
+                }
+            case va_9:
+                {
+                    if (HoneySlotRefDict[a_C].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_C].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_4, activation);
+                        Piece_s.Alter_EqualSign(t_1, activation);
+                    }
+
+                    if (HoneySlotRefDict[a_F].GetComponentInChildren<Piece>() != null)
+                    {
+                        Piece_s = HoneySlotRefDict[a_F].GetComponentInChildren<Piece>();
+                        Piece_s.Alter_EqualSign(t_4, activation);
+                        Piece_s.Alter_EqualSign(t_1, activation);
+                    }
+
+                    break;
+                }
+            default:
+                break;
+        }
+    }
+
+    public string Get_BulbAnswer(int honeycomb_index, va_VINEAXIS vine_axis, ref List<List<Info_Slot>> hc_list)
+    {
+        string answer = "";
+
+        //usables
+        fv_FACEVALUE val1;
+        fv_FACEVALUE val2;
+        fv_FACEVALUE val3;
+        fv_FACEVALUE val4;
+        fv_FACEVALUE val5;
+        fv_FACEVALUE val6;
+
+        switch (vine_axis)
+        {
+            case va_1:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_G)].fslot_6;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_G)].fslot_3;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_F)].fslot_6;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_F)].fslot_3;
+                DoesThisValidate(val1, val2, val3, val4, ref answer);
+                break;
+            case va_2:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_E)].fslot_6;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_E)].fslot_3;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_D)].fslot_6;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_D)].fslot_3;
+                val5 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_C)].fslot_6;
+                val6 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_C)].fslot_3;
+                DoesThisValidate(val1, val2, val3, val4, val5, val6, ref answer);
+                break;
+            case va_3:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_B)].fslot_6;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_B)].fslot_3;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_A)].fslot_6;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_A)].fslot_3;
+                DoesThisValidate(val1, val2, val3, val4, ref answer);
+                break;
+            case va_4:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_E)].fslot_5;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_E)].fslot_2;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_G)].fslot_5;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_G)].fslot_2;
+                DoesThisValidate(val1, val2, val3, val4, ref answer);
+                break;
+            case va_5:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_B)].fslot_5;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_B)].fslot_2;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_D)].fslot_5;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_D)].fslot_2;
+                val5 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_F)].fslot_5;
+                val6 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_F)].fslot_2;
+                DoesThisValidate(val1, val2, val3, val4, val5, val6, ref answer);
+                break;
+            case va_6:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_A)].fslot_5;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_A)].fslot_2;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_C)].fslot_5;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_C)].fslot_2;
+                DoesThisValidate(val1, val2, val3, val4, ref answer);
+                break;
+            case va_7:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_B)].fslot_4;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_B)].fslot_1;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_E)].fslot_4;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_E)].fslot_1;
+                DoesThisValidate(val1, val2, val3, val4, ref answer);
+                break;
+            case va_8:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_A)].fslot_4;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_A)].fslot_1;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_D)].fslot_4;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_D)].fslot_1;
+                val5 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_G)].fslot_4;
+                val6 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_G)].fslot_1;
+                DoesThisValidate(val1, val2, val3, val4, val5, val6, ref answer);
+                break;
+            case va_9:
+                val1 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_C)].fslot_4;
+                val2 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_C)].fslot_1;
+                val3 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_F)].fslot_4;
+                val4 = hc_list[honeycomb_index][Hub.BlockHouse_s.ConvertToIndex(a_F)].fslot_1;
+                DoesThisValidate(val1, val2, val3, val4, ref answer);
+                break;
+            default:
+                break;
+        }
+
+        return answer;
+    }
+
     //Utilities
 
-    static private void PossiblyMerge_Ints(ref List<VineBlock> VBlocks)
+    private void Scrub_TheseBlocks_NoEquals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, ref string ans)
+    {
+        //put values into list
+        List<VineBlock> AllValues = new List<VineBlock>();
+        AllValues.Add(new VineBlock(val1, 0));
+        AllValues.Add(new VineBlock(val2, 0));
+        AllValues.Add(new VineBlock(val3, 0));
+        AllValues.Add(new VineBlock(val4, 0));
+
+        Scrub_PossiblyEliminate_Spaces(ref AllValues);
+        Scrub_PossiblyEliminate_Zeros(ref AllValues);
+        Scrub_PossiblyMerge_Ints(ref AllValues);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref AllValues);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref AllValues);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref AllValues);
+
+        /* SCRUBBING DONE */
+
+        /* Apply Answer */
+        {
+            for (int i = 0; i < AllValues.Count; i++)
+            {
+                if (AllValues[i].Value == fv_INT)
+                {
+                    ans += AllValues[i].IntValue.ToString();
+                }
+                else if (AllValues[i].Value == fv_BLANK)
+                {
+                    //skip
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(AllValues[i].Value);
+                }
+            }
+        }
+    }
+
+    private void Scrub_TheseBlocks_NoEquals(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6, ref string ans)
+    {
+        //put values into list
+        List<VineBlock> AllValues = new List<VineBlock>();
+        AllValues.Add(new VineBlock(val1, 0));
+        AllValues.Add(new VineBlock(val2, 0));
+        AllValues.Add(new VineBlock(val3, 0));
+        AllValues.Add(new VineBlock(val4, 0));
+        AllValues.Add(new VineBlock(val5, 0));
+        AllValues.Add(new VineBlock(val6, 0));
+
+        Scrub_PossiblyEliminate_Spaces(ref AllValues);
+        Scrub_PossiblyEliminate_Zeros(ref AllValues);
+        Scrub_PossiblyMerge_Ints(ref AllValues);
+        Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref AllValues);
+        Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref AllValues);
+        Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref AllValues);
+
+        /* SCRUBBING DONE */
+
+        /* Apply Answer */
+        {
+            for (int i = 0; i < AllValues.Count; i++)
+            {
+                if (AllValues[i].Value == fv_INT)
+                {
+                    ans += AllValues[i].IntValue.ToString();
+                }
+                else if (AllValues[i].Value == fv_BLANK)
+                {
+                    //skip
+                }
+                else
+                {
+                    ans += Hub.LevelBuilder_s.Convert_FaceValueToString(AllValues[i].Value);
+                }
+            }
+        }
+    }
+
+    private void Scrub_PossiblyMerge_Ints(ref List<VineBlock> VBlocks)
     {
         int IntValue = 1;
         int DigitTracker = 0;
 
         //loop Values
-        for (int i=0; i< VBlocks.Count; i++)
+        for (int i = 0; i < VBlocks.Count; i++)
         {
             //if digit
-            if (IsDigit(VBlocks[i].Value)) {
+            if (IsDigit(VBlocks[i].Value))
+            {
 
                 //first time
                 if (DigitTracker == 0)
                 {
                     //set to this first digit
-                    IntValue = Get_Digit(VBlocks[i].Value);
+                    IntValue = Get_IntFromFaceValue(VBlocks[i].Value);
 
                     //increment
                     DigitTracker++;
@@ -925,7 +1553,7 @@ public class VineValidator : MonoBehaviour
                 else
                 {
                     //IntValue = 10 * previous + new digit
-                    IntValue = (10 * IntValue) + Get_Digit(VBlocks[i].Value);
+                    IntValue = (10 * IntValue) + Get_IntFromFaceValue(VBlocks[i].Value);
 
                     //increment
                     DigitTracker++;
@@ -987,10 +1615,14 @@ public class VineValidator : MonoBehaviour
         }
     }
 
-    static private void PossiblyEliminate_MinusAndPlusSigns_NoMathx3(ref List<VineBlock> VBlocks)
+    private void Scrub_PossiblyEliminate_MinusAndPlusSigns_NoMathx5(ref List<VineBlock> VBlocks)
     {
-        //do atleast three times
-        for (int times = 0; times < 3; times++)
+        /* 
+        This needs to be done 5 times to accomodate +-+-+9.  If not, not enough +/- are converted into the fv_INT
+        */
+
+        //do atleast five times
+        for (int times = 0; times < 5; times++)
         {
             //loop Values by index
             for (int i = 0; i < VBlocks.Count; i++)
@@ -1135,7 +1767,7 @@ public class VineValidator : MonoBehaviour
         }
     }
 
-    static private void PossiblyEliminate_MinusSigns_OnlyMath(ref List<VineBlock> VBlocks)
+    private void Scrub_PossiblyEliminate_MinusSigns_OnlyMath(ref List<VineBlock> VBlocks)
     {
         //loop Values by index
         for (int i = 0; i < VBlocks.Count; i++)
@@ -1144,15 +1776,15 @@ public class VineValidator : MonoBehaviour
             if (VBlocks[i].Value == fv_SUB)
             {
                 //safety -check if first index
-                if(i == 0)
+                if (i == 0)
                 {
                     //safety -check if at end
-                    if(i+1 >= VBlocks.Count)
+                    if (i + 1 >= VBlocks.Count)
                     {
                         //just a minus
                         continue;
                     }
-                    if(VBlocks[i+1].Value == fv_INT)
+                    if (VBlocks[i + 1].Value == fv_INT)
                     {
                         //store OldInt
                         int OldInt = VBlocks[i + 1].IntValue;
@@ -1181,7 +1813,7 @@ public class VineValidator : MonoBehaviour
                 else
                 {
                     //if digit on left
-                    if(VBlocks[i-1].Value == fv_INT)
+                    if (VBlocks[i - 1].Value == fv_INT)
                     {
                         //safety -check if at end
                         if (i + 1 >= VBlocks.Count)
@@ -1191,7 +1823,7 @@ public class VineValidator : MonoBehaviour
                         }
 
                         // digit - digit
-                        if(VBlocks[i+1].Value == fv_INT)
+                        if (VBlocks[i + 1].Value == fv_INT)
                         {
                             //get new int
                             int NewInt = (VBlocks[i - 1].IntValue) - (VBlocks[i + 1].IntValue);
@@ -1271,7 +1903,7 @@ public class VineValidator : MonoBehaviour
         }
     }
 
-    static private void PossiblyEliminate_PlusSigns_OnlyMath(ref List<VineBlock> VBlocks)
+    private void Scrub_PossiblyEliminate_PlusSigns_OnlyMath(ref List<VineBlock> VBlocks)
     {
         //loop Values by index
         for (int i = 0; i < VBlocks.Count; i++)
@@ -1330,16 +1962,16 @@ public class VineValidator : MonoBehaviour
         }
     }
 
-    static private void PossiblyEliminate_Zeros(ref List<VineBlock> VBlocks)
+    private void Scrub_PossiblyEliminate_Zeros(ref List<VineBlock> VBlocks)
     {
         //loop Values by index
-        for(int i=0; i< VBlocks.Count; i++)
+        for (int i = 0; i < VBlocks.Count; i++)
         {
             //if zero
-            if(VBlocks[i].Value == fv_0)
+            if (VBlocks[i].Value == fv_0)
             {
                 //safety -check if last index
-                if(i+1 == VBlocks.Count)
+                if (i + 1 == VBlocks.Count)
                 {
                     continue;
                 }
@@ -1348,7 +1980,7 @@ public class VineValidator : MonoBehaviour
                 if (IsDigit(VBlocks[i + 1].Value))
                 {
                     //safety -check if first index
-                    if(i-1 == -1)
+                    if (i - 1 == -1)
                     {
                         //delete the zero
                         VBlocks.RemoveAt(i);
@@ -1372,7 +2004,24 @@ public class VineValidator : MonoBehaviour
         }
     }
 
-    static private int Get_AmountOfEqualsValues(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4)
+    private void Scrub_PossiblyEliminate_Spaces(ref List<VineBlock> VBlocks)
+    {
+        //loop Values by index
+        for (int i = 0; i < VBlocks.Count; i++)
+        {
+            //if zero
+            if (VBlocks[i].Value == fv_BLANK)
+            {
+                //delete the zero
+                VBlocks.RemoveAt(i);
+
+                //need to deincrement index because of removal
+                i--;
+            }
+        }
+    }
+
+    private int Get_AmountOfEqualsValues(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4)
     {
         int EqualsAmount = 0;
 
@@ -1384,7 +2033,7 @@ public class VineValidator : MonoBehaviour
         return EqualsAmount;
     }
 
-    static private int Get_AmountOfEqualsValues(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6)
+    private int Get_AmountOfEqualsValues(fv_FACEVALUE val1, fv_FACEVALUE val2, fv_FACEVALUE val3, fv_FACEVALUE val4, fv_FACEVALUE val5, fv_FACEVALUE val6)
     {
         int EqualsAmount = 0;
 
@@ -1397,42 +2046,18 @@ public class VineValidator : MonoBehaviour
 
         return EqualsAmount;
     }
-   
-    static public int Get_Digit(fv_FACEVALUE val)
+
+    public int Get_IntFromFaceValue(fv_FACEVALUE val)
     {
-        switch (val)
-        {
-            case fv_0:
-                return 0;
-            case fv_1:
-                return 1;
-            case fv_2:
-                return 2;
-            case fv_3:
-                return 3;
-            case fv_4:
-                return 4;
-            case fv_5:
-                return 5;
-            case fv_6:
-                return 6;
-            case fv_7:
-                return 7;
-            case fv_8:
-                return 8;
-            case fv_9:
-                return 9;
-            default:
-                return 99;
-        }
+        return (int)val - 1;
     }
 
-    static public fv_FACEVALUE Get_FaceValue(int val)
+    public fv_FACEVALUE Get_FaceValue(int val)
     {
         return (fv_FACEVALUE)(val + 1);
     }
 
-    static private bool IsDigit(fv_FACEVALUE val)
+    private bool IsDigit(fv_FACEVALUE val)
     {
         switch (val)
         {
@@ -1463,20 +2088,25 @@ public class VineValidator : MonoBehaviour
         }
     }
 
-    static public void Run_SpecificTestValidate()
+    public void Run_SpecificTestValidate()
     {
-        fv_FACEVALUE ffv_1 = fv_3;
-        fv_FACEVALUE ffv_2 = fv_EQUALS;
-        fv_FACEVALUE ffv_3 = fv_EQUALS;
-        fv_FACEVALUE ffv_4 = fv_3;
-        fv_FACEVALUE ffv_5 = fv_EQUALS;
-        fv_FACEVALUE ffv_6 = fv_BLANK;
+        fv_FACEVALUE val1 = fv_ADD;
+        fv_FACEVALUE val2 = fv_ADD;
+        fv_FACEVALUE val3 = fv_SUB;
+        fv_FACEVALUE val4 = fv_ADD;
+        fv_FACEVALUE val5 = fv_SUB;
+        fv_FACEVALUE val6 = fv_6;
 
         Debug.Log("++++++++++++++++++");
 
-        bool result = DoesThisValidate(ffv_1, ffv_2, ffv_3, ffv_4, ffv_5, ffv_6);
+        string ans = string.Empty;
+
+        bool result = DoesThisValidate(val1, val2, val3, val4, val5, val6, ref ans);
+        //bool result = DoesThisValidate(val1, val2, val3, val4, ref ans);
+
 
         Debug.Log("Test validation: " + result);
+        Debug.Log("Test answer: " + ans);
         Debug.Log("++++++++++++++++++");
 
 
